@@ -68,10 +68,17 @@
 	const startBtn = $("#startBtn");
 	const stopBtn = $("#stopBtn");
 	const nextBtn = $("#nextBtn");
+	const logToggle = $("#logToggle");
+	const chooseFileBtn = $("#chooseFileBtn");
+	const exportBtn = $("#exportBtn");
+	const fileNameEl = $("#fileName");
 
 	let timerId = null;
 	let phase = "show"; // "show" | "blank"
 	let rng = createRngFromSeed("");
+	let lastPlate = "AG123CD";
+	let logEntries = [];
+	let logFileHandle = null; // FileSystemFileHandle (solo sesión actual)
 
 	function fitTextToOverlay() {
 		// Ajusta el tamaño de fuente para que NUNCA se salga del recuadro,
@@ -108,6 +115,8 @@
 		const plate = generateRandomPlate(rng);
 		plateText.textContent = formatForDisplay(plate);
 		fitTextToOverlay();
+		lastPlate = plate;
+		return plate;
 	}
 
 	function setHidden(isHidden) {
@@ -119,6 +128,74 @@
 		timerId = setTimeout(tick, ms);
 	}
 
+	function pad2(n) {
+		return String(n).padStart(2, "0");
+	}
+	function formatTimestamp(d) {
+		const yyyy = d.getFullYear();
+		const mm = pad2(d.getMonth() + 1);
+		const dd = pad2(d.getDate());
+		const hh = pad2(d.getHours());
+		const mi = pad2(d.getMinutes());
+		const ss = pad2(d.getSeconds());
+		return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+	}
+	function recordPlate(plate) {
+		if (!logToggle.checked) return;
+		const line = `${formatTimestamp(new Date())} - ${plate}`;
+		logEntries.push(line);
+		appendToFileIfChosen(line + "\n");
+	}
+	async function appendToFileIfChosen(text) {
+		try {
+			if (!logFileHandle) return;
+			const file = await logFileHandle.getFile();
+			const size = file.size;
+			const writable = await logFileHandle.createWritable({ keepExistingData: true });
+			await writable.write({ type: "write", position: size, data: text });
+			await writable.close();
+		} catch (err) {
+			console.warn("No se pudo escribir en el archivo:", err);
+		}
+	}
+	async function chooseLogFile() {
+		if (!window.showSaveFilePicker) {
+			alert("Tu navegador no soporta elegir archivos directamente.\nUsa “Exportar .txt” para descargar el log.");
+			return;
+		}
+		try {
+			logFileHandle = await window.showSaveFilePicker({
+				suggestedName: "patentes-log.txt",
+				types: [{ description: "Texto", accept: { "text/plain": [".txt"] } }],
+				excludeAcceptAllOption: false,
+			});
+			fileNameEl.textContent = logFileHandle.name || "patentes-log.txt";
+			// Si ya hay buffer acumulado, volcarlo
+			if (logEntries.length) {
+				await appendToFileIfChosen(logEntries.join("\n") + "\n");
+			}
+		} catch (err) {
+			if (err && err.name !== "AbortError") {
+				console.warn("Error eligiendo archivo:", err);
+			}
+		}
+	}
+	function exportLog() {
+		if (!logEntries.length) {
+			alert("No hay registros aún.");
+			return;
+		}
+		const blob = new Blob([logEntries.join("\n") + "\n"], { type: "text/plain;charset=utf-8" });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement("a");
+		a.href = url;
+		a.download = "patentes-log.txt";
+		document.body.appendChild(a);
+		a.click();
+		a.remove();
+		URL.revokeObjectURL(url);
+	}
+
 	function tick() {
 		const ms = clampInterval(parseInt(intervalInput.value, 10));
 		if (phase === "show") {
@@ -127,9 +204,10 @@
 			phase = "blank";
 		} else {
 			// Mostramos la siguiente patente por ms
-			renderRandom();
+			const plate = renderRandom();
 			setHidden(false);
 			phase = "show";
+			recordPlate(plate);
 		}
 		scheduleNext(ms);
 	}
@@ -143,8 +221,9 @@
 		}
 		// Comenzamos mostrando y luego vendrá el blanco
 		phase = "show";
-		renderRandom();
+		const plate = renderRandom();
 		setHidden(false);
+		recordPlate(plate);
 		scheduleNext(ms);
 	}
 
@@ -197,9 +276,10 @@
 			setHidden(true);
 			phase = "blank";
 		} else {
-			renderRandom();
+			const plate = renderRandom();
 			setHidden(false);
 			phase = "show";
+			recordPlate(plate);
 		}
 		// Si está corriendo, reprogramamos desde ahora
 		if (timerId) {
@@ -207,6 +287,8 @@
 			scheduleNext(clampInterval(parseInt(intervalInput.value, 10)));
 		}
 	});
+	chooseFileBtn.addEventListener("click", chooseLogFile);
+	exportBtn.addEventListener("click", exportLog);
 	window.addEventListener("resize", fitTextToOverlay);
 	document.addEventListener("keydown", (ev) => {
 		if (ev.code === "Space") {

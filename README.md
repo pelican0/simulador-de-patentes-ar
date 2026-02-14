@@ -13,6 +13,16 @@ Aplicación simple en HTML/CSS/JS que superpone cadenas aleatorias con formato `
    - Siguiente: genera una sola patente.
    - Atajo: barra espaciadora inicia/detiene.
 
+## Registro en archivo (log)
+
+Cada vez que se muestra una patente (fase “visible”) se registra una línea con fecha y la patente en formato `YYYY-MM-DD HH:mm:ss - AB123CD`.
+
+- Botón **Registrar**: activa/desactiva el registro automático.
+- **Elegir archivo…**: si tu navegador lo permite (Chromium/Edge/Chrome en `http://localhost` o `https://`), podrás seleccionar/crear un `.txt` y la app irá agregando líneas allí automáticamente.
+- **Exportar .txt**: si no puedes elegir archivo, este botón descarga un `.txt` con todo lo registrado en la sesión actual.
+
+Nota: Para poder elegir archivo en Chrome/Edge abre la app sirviéndola desde un servidor local (por ejemplo con `npx serve .`) o publícala con HTTPS. Abrir directo con `file://` puede no habilitar la API de archivos.
+
 ## Ajustes finos de posición
 
 Si tu imagen tiene proporciones distintas, podés ajustar variables CSS en `styles.css`:
