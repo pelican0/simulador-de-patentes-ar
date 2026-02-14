@@ -1,0 +1,16 @@
+# OS / IDE
+Thumbs.db
+Desktop.ini
+.DS_Store
+.vscode/
+.idea/
+.history/
+
+# Cursor/Editor
+.cursor/
+
+# Logs / temp
+*.log
+*.tmp
+*.cache
+
