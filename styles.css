@@ -124,6 +124,18 @@ body {
 	height: auto;
 }
 
+/* Overrides para modo MOTO */
+.plate--moto {
+	--overlay-top: 23%;
+	--overlay-bottom: 12%;
+	--overlay-left: 8%;
+	--overlay-right: 8%;
+	/* Separación vertical entre renglones (ajustable) */
+	--moto-line-gap: 1.14;
+	/* Reducir al 50% del ancho disponible actual */
+	width: 50%;
+}
+
 /* Capa del texto */
 .overlay {
 	position: absolute;
@@ -165,11 +177,18 @@ body {
 	display: inline-block;
 	max-width: 100%;
 	text-align: center;
-	white-space: normal;
+	white-space: pre-line; /* soporta \n para modo moto */
 	text-wrap: balance;
 	hyphens: none;
 	position: relative;
 	z-index: 1;
+}
+
+/* Afinado para modo moto */
+.plate--moto .plate-text {
+	letter-spacing: 0.01em;
+	word-spacing: 0;
+	line-height: var(--moto-line-gap);
 }
 
 .plate-text.is-hidden {

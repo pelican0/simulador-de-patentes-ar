@@ -42,7 +42,7 @@
 		return sfc32(seedFunc(), seedFunc(), seedFunc(), seedFunc());
 	}
 
-	function generateRandomPlate(rng) {
+	function generateRandomPlateAuto(rng) {
 		const pick = () => ALPHABET[Math.floor(rng() * ALPHABET.length)];
 		const l1 = pick();
 		const l2 = pick();
@@ -54,9 +54,21 @@
 		return `${l1}${l2}${num}${l3}${l4}`; // "AB123CD"
 	}
 
-	function formatForDisplay(plate) {
+	function generateRandomPlateMoto(rng) {
+		const pick = () => ALPHABET[Math.floor(rng() * ALPHABET.length)];
+		const d = () => Math.floor(rng() * 10);
+		const top = `${pick()}${d()}${d()}`; // A16
+		const bottom = `${d()}${pick()}${pick()}${pick()}`; // 7DUM
+		return `${top}\n${bottom}`; // dos renglones
+	}
+
+	function formatForDisplayAuto(plate) {
 		// "AB123CD" -> "AB 123 CD"
 		return `${plate.slice(0, 2)} ${plate.slice(2, 5)} ${plate.slice(5)}`;
+	}
+
+	function toLogString(plateRaw) {
+		return String(plateRaw).replace(/\s+/g, " ").trim();
 	}
 
 	const $ = (sel) => document.querySelector(sel);
@@ -65,6 +77,7 @@
 	const plateImg = $("#plateImg");
 	const intervalInput = $("#intervalInput");
 	const seedInput = $("#seedInput");
+	const modeSelect = $("#modeSelect");
 	const startBtn = $("#startBtn");
 	const stopBtn = $("#stopBtn");
 	const nextBtn = $("#nextBtn");
@@ -79,6 +92,7 @@
 	let lastPlate = "AG123CD";
 	let logEntries = [];
 	let logFileHandle = null; // FileSystemFileHandle (solo sesión actual)
+	let mode = "auto"; // "auto" | "moto"
 
 	function fitTextToOverlay() {
 		// Ajusta el tamaño de fuente para que NUNCA se salga del recuadro,
@@ -89,7 +103,9 @@
 
 		// Límite superior razonable: cercano al alto de la caja
 		let low = 8;
-		let high = Math.max(16, Math.floor(ch * 0.9));
+		// Para motos hacemos la tipografía un poco más chica de forma intencional
+		const maxFactor = (typeof mode !== "undefined" && mode === "moto") ? 0.74 : 0.9;
+		let high = Math.max(16, Math.floor(ch * maxFactor));
 		let best = low;
 
 		const fits = () => plateText.scrollWidth <= cw && plateText.scrollHeight <= ch;
@@ -112,8 +128,14 @@
 	}
 
 	function renderRandom() {
-		const plate = generateRandomPlate(rng);
-		plateText.textContent = formatForDisplay(plate);
+		let plate;
+		if (mode === "moto") {
+			plate = generateRandomPlateMoto(rng); // "A16\n7DUM"
+			plateText.textContent = plate; // soporta \n gracias a white-space: pre-line
+		} else {
+			plate = generateRandomPlateAuto(rng); // "AB123CD"
+			plateText.textContent = formatForDisplayAuto(plate);
+		}
 		fitTextToOverlay();
 		lastPlate = plate;
 		return plate;
@@ -142,7 +164,7 @@
 	}
 	function recordPlate(plate) {
 		if (!logToggle.checked) return;
-		const line = `${formatTimestamp(new Date())} - ${plate}`;
+		const line = `${formatTimestamp(new Date())} - ${toLogString(plate)}`;
 		logEntries.push(line);
 		appendToFileIfChosen(line + "\n");
 	}
@@ -290,6 +312,23 @@
 	chooseFileBtn.addEventListener("click", chooseLogFile);
 	exportBtn.addEventListener("click", exportLog);
 	window.addEventListener("resize", fitTextToOverlay);
+	modeSelect.addEventListener("change", () => {
+		mode = modeSelect.value === "moto" ? "moto" : "auto";
+		const plateContainer = document.getElementById("plateContainer");
+		if (mode === "moto") {
+			plateImg.src = "./imgs/motos-crop.png";
+			plateContainer.classList.remove("plate--auto");
+			plateContainer.classList.add("plate--moto");
+			plateText.textContent = "A16\n7DUM";
+		} else {
+			plateImg.src = "./imgs/Mercosur.png";
+			plateContainer.classList.remove("plate--moto");
+			plateContainer.classList.add("plate--auto");
+			plateText.textContent = "AG 759 LH";
+		}
+		setHidden(false);
+		fitTextToOverlay();
+	});
 	document.addEventListener("keydown", (ev) => {
 		if (ev.code === "Space") {
 			ev.preventDefault();

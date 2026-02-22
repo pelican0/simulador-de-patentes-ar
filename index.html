@@ -22,6 +22,13 @@
 						<span>Semilla (opcional)</span>
 						<input id="seedInput" type="text" placeholder="p. ej. demo" />
 					</label>
+					<label class="control">
+						<span>Modo</span>
+						<select id="modeSelect">
+							<option value="auto" selected>Auto</option>
+							<option value="moto">Moto</option>
+						</select>
+					</label>
 					<button id="startBtn" class="btn primary">Iniciar</button>
 					<button id="stopBtn" class="btn">Detener</button>
 					<button id="nextBtn" class="btn">Siguiente</button>
@@ -38,8 +45,8 @@
 
 			<main>
 				<!-- Contenedor de la chapa; el tamaño se adapta a la imagen -->
-				<div id="plateContainer" class="plate">
-					<img id="plateImg" src="./imgs/Mercosur.png" alt="Placa Mercosur Argentina" class="plate-img" />
+				<div id="plateContainer" class="plate plate--auto">
+					<img id="plateImg" src="./imgs/Mercosur.png" alt="Placa" class="plate-img" />
 					<!-- Capa de texto posicionada sobre la imagen -->
 					<div id="overlay" class="overlay">
 						<!-- Texto completo (tres grupos) -->

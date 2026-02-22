@@ -23,6 +23,10 @@ Cada vez que se muestra una patente (fase “visible”) se registra una línea 
 
 Nota: Para poder elegir archivo en Chrome/Edge abre la app sirviéndola desde un servidor local (por ejemplo con `npx serve .`) o publícala con HTTPS. Abrir directo con `file://` puede no habilitar la API de archivos.
 
+## Modo Moto
+
+Seleccioná “Moto” en el selector de Modo para usar el marco `imgs/motos-crop.png` y generar patentes con dos renglones, siguiendo el ejemplo `A16` y `7DUM`. El tamaño del texto se ajusta automáticamente al área blanca del marco.
+
 ## Ajustes finos de posición
 
 Si tu imagen tiene proporciones distintas, podés ajustar variables CSS en `styles.css`:
