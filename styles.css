@@ -156,7 +156,7 @@ body {
 	content: "";
 	position: absolute;
 	inset: 0;
-	background: #ffffff;
+	background: var(--overlay-mask-color, #ffffff);
 	z-index: 0;
 }
 
@@ -189,6 +189,28 @@ body {
 	letter-spacing: 0.01em;
 	word-spacing: 0;
 	line-height: var(--moto-line-gap);
+}
+
+/* En modo auto, forzar exactamente un espacio entre grupos */
+.plate--auto .plate-text {
+	word-spacing: 0; /* no añadir espacio extra al espacio tipográfico */
+}
+
+/* Overrides para modo Auto 1994 (negro, texto blanco) */
+.plate--auto1994 {
+	--overlay-top: 28%;
+	--overlay-bottom: 18%;
+	--overlay-left: 3.5%;
+	--overlay-right: 3.5%;
+	--overlay-mask-color: transparent; /* mantener el rectángulo negro del fondo */
+	--text-color: #ffffff;
+	--text-shadow: 0 3px 10px rgba(0, 0, 0, 0.55);
+	/* Reducir al 50% del tamaño actual */
+	width: 50%;
+}
+.plate--auto1994 .plate-text {
+	word-spacing: 0; /* exactamente un espacio entre grupos */
+	letter-spacing: 0.04em;
 }
 
 .plate-text.is-hidden {

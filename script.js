@@ -62,6 +62,18 @@
 		return `${top}\n${bottom}`; // dos renglones
 	}
 
+	// Formato 1994: "ABC 123"
+	function generateRandomPlateAuto1994(rng) {
+		const pick = () => ALPHABET[Math.floor(rng() * ALPHABET.length)];
+		const l1 = pick();
+		const l2 = pick();
+		const l3 = pick();
+		const num = Math.floor(rng() * 1000)
+			.toString()
+			.padStart(3, "0");
+		return `${l1}${l2}${l3} ${num}`;
+	}
+
 	function formatForDisplayAuto(plate) {
 		// "AB123CD" -> "AB 123 CD"
 		return `${plate.slice(0, 2)} ${plate.slice(2, 5)} ${plate.slice(5)}`;
@@ -92,7 +104,7 @@
 	let lastPlate = "AG123CD";
 	let logEntries = [];
 	let logFileHandle = null; // FileSystemFileHandle (solo sesión actual)
-	let mode = "auto"; // "auto" | "moto"
+	let mode = "auto"; // "auto" | "moto" | "auto1994"
 
 	function fitTextToOverlay() {
 		// Ajusta el tamaño de fuente para que NUNCA se salga del recuadro,
@@ -132,6 +144,9 @@
 		if (mode === "moto") {
 			plate = generateRandomPlateMoto(rng); // "A16\n7DUM"
 			plateText.textContent = plate; // soporta \n gracias a white-space: pre-line
+		} else if (mode === "auto1994") {
+			plate = generateRandomPlateAuto1994(rng); // "ABC 123"
+			plateText.textContent = plate;
 		} else {
 			plate = generateRandomPlateAuto(rng); // "AB123CD"
 			plateText.textContent = formatForDisplayAuto(plate);
@@ -313,16 +328,24 @@
 	exportBtn.addEventListener("click", exportLog);
 	window.addEventListener("resize", fitTextToOverlay);
 	modeSelect.addEventListener("change", () => {
-		mode = modeSelect.value === "moto" ? "moto" : "auto";
+		mode = modeSelect.value === "moto" ? "moto" : (modeSelect.value === "auto1994" ? "auto1994" : "auto");
 		const plateContainer = document.getElementById("plateContainer");
 		if (mode === "moto") {
 			plateImg.src = "./imgs/motos-crop.png";
 			plateContainer.classList.remove("plate--auto");
+			plateContainer.classList.remove("plate--auto1994");
 			plateContainer.classList.add("plate--moto");
 			plateText.textContent = "A16\n7DUM";
+		} else if (mode === "auto1994") {
+			plateImg.src = "./imgs/Patente-1994.png";
+			plateContainer.classList.remove("plate--moto");
+			plateContainer.classList.remove("plate--auto");
+			plateContainer.classList.add("plate--auto1994");
+			plateText.textContent = "ABC 123";
 		} else {
 			plateImg.src = "./imgs/Mercosur.png";
 			plateContainer.classList.remove("plate--moto");
+			plateContainer.classList.remove("plate--auto1994");
 			plateContainer.classList.add("plate--auto");
 			plateText.textContent = "AG 759 LH";
 		}
