@@ -79,6 +79,10 @@ body {
 	font-size: 14px;
 }
 
+.control[hidden] {
+	display: none !important;
+}
+
 .control input[type="number"],
 .control input[type="text"],
 .control select {
