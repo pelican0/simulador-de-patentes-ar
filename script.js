@@ -87,9 +87,13 @@
 	const overlay = $("#overlay");
 	const plateText = $("#plateText");
 	const plateImg = $("#plateImg");
+	const plateContainer = $("#plateContainer");
 	const intervalInput = $("#intervalInput");
 	const seedInput = $("#seedInput");
 	const modeSelect = $("#modeSelect");
+	const motionSelect = $("#motionSelect");
+	const screenTimeInput = $("#screenTimeInput");
+	const screenTimeControl = $("#screenTimeControl");
 	const startBtn = $("#startBtn");
 	const stopBtn = $("#stopBtn");
 	const nextBtn = $("#nextBtn");
@@ -99,12 +103,16 @@
 	const fileNameEl = $("#fileName");
 
 	let timerId = null;
+	let motionRaf = null;
+	let running = false;
 	let phase = "show"; // "show" | "blank"
 	let rng = createRngFromSeed("");
 	let lastPlate = "AG123CD";
 	let logEntries = [];
 	let logFileHandle = null; // FileSystemFileHandle (solo sesión actual)
 	let mode = "auto"; // "auto" | "moto" | "auto1994"
+	let movingSize = null; // { w, h } tamaño congelado de la chapa en movimiento
+	let motionSpacer = null;
 
 	function fitTextToOverlay() {
 		// Ajusta el tamaño de fuente para que NUNCA se salga del recuadro,
@@ -163,6 +171,198 @@
 
 	function scheduleNext(ms) {
 		timerId = setTimeout(tick, ms);
+	}
+
+	function isMotionOn() {
+		return motionSelect.value === "down" || motionSelect.value === "random";
+	}
+
+	function syncMotionControls() {
+		if (isMotionOn()) screenTimeControl.removeAttribute("hidden");
+		else screenTimeControl.setAttribute("hidden", "");
+	}
+
+	function getViewportSize() {
+		return { w: window.innerWidth, h: window.innerHeight };
+	}
+
+	function clampScreenTime(value) {
+		if (!Number.isFinite(value) || value < 100) return 100;
+		if (value > 600000) return 600000;
+		return value;
+	}
+
+	function cancelMotionAnim() {
+		if (motionRaf) {
+			cancelAnimationFrame(motionRaf);
+			motionRaf = null;
+		}
+	}
+
+	function enterMotionLayout() {
+		if (plateContainer.classList.contains("is-moving")) return;
+		const w = plateContainer.offsetWidth;
+		const h = plateContainer.offsetHeight;
+		movingSize = { w, h };
+		if (!motionSpacer) {
+			motionSpacer = document.createElement("div");
+			motionSpacer.className = "motion-spacer";
+			motionSpacer.setAttribute("aria-hidden", "true");
+			plateContainer.parentNode.insertBefore(motionSpacer, plateContainer);
+		}
+		motionSpacer.style.height = h + "px";
+		plateContainer.style.width = w + "px";
+		plateContainer.style.visibility = "";
+		plateContainer.classList.add("is-moving");
+		document.body.classList.add("motion-on");
+	}
+
+	function exitMotionLayout() {
+		cancelMotionAnim();
+		plateContainer.classList.remove("is-moving");
+		plateContainer.style.width = "";
+		plateContainer.style.transform = "";
+		plateContainer.style.visibility = "";
+		document.body.classList.remove("motion-on");
+		movingSize = null;
+		if (motionSpacer) {
+			motionSpacer.remove();
+			motionSpacer = null;
+		}
+	}
+
+	function randomRange(min, max) {
+		return min + Math.random() * (max - min);
+	}
+
+	function pickItem(arr) {
+		return arr[Math.floor(Math.random() * arr.length)];
+	}
+
+	function pointOutsideEdge(edge, plateW, plateH, vw, vh) {
+		const alongX = () => randomRange(-plateW * 0.25, vw - plateW * 0.75);
+		const alongY = () => randomRange(-plateH * 0.25, vh - plateH * 0.75);
+		switch (edge) {
+			case "top":
+				return { x: alongX(), y: -plateH };
+			case "bottom":
+				return { x: alongX(), y: vh };
+			case "left":
+				return { x: -plateW, y: alongY() };
+			case "right":
+			default:
+				return { x: vw, y: alongY() };
+		}
+	}
+
+	function buildDownPath() {
+		const { w: vw, h: vh } = getViewportSize();
+		const { w, h } = movingSize;
+		const x = (vw - w) / 2;
+		return [
+			{ x, y: -h },
+			{ x, y: vh },
+		];
+	}
+
+	function buildRandomPath() {
+		const { w: vw, h: vh } = getViewportSize();
+		const { w: pw, h: ph } = movingSize;
+		const edges = ["top", "right", "bottom", "left"];
+		const startEdge = pickItem(edges);
+		const endEdge = pickItem(edges.filter((e) => e !== startEdge));
+		const start = pointOutsideEdge(startEdge, pw, ph, vw, vh);
+		const end = pointOutsideEdge(endEdge, pw, ph, vw, vh);
+
+		const turns = 2 + Math.floor(Math.random() * 4);
+		const points = [start];
+		let x = start.x;
+		let y = start.y;
+		const cx = (vw - pw) / 2;
+		const cy = (vh - ph) / 2;
+		let heading = Math.atan2(cy - y, cx - x);
+
+		for (let i = 0; i < turns; i++) {
+			heading += randomRange(-Math.PI * 0.85, Math.PI * 0.85);
+			const dist = randomRange(Math.min(vw, vh) * 0.22, Math.min(vw, vh) * 0.7);
+			x += Math.cos(heading) * dist;
+			y += Math.sin(heading) * dist;
+			x = Math.min(vw - 16, Math.max(-pw + 16, x));
+			y = Math.min(vh - 16, Math.max(-ph + 16, y));
+			points.push({ x, y });
+		}
+		points.push(end);
+		return points;
+	}
+
+	function setPlatePosition(x, y) {
+		plateContainer.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+	}
+
+	function animateAlongPath(points, duration, onDone) {
+		cancelMotionAnim();
+		const segs = [];
+		let total = 0;
+		for (let i = 1; i < points.length; i++) {
+			const dx = points[i].x - points[i - 1].x;
+			const dy = points[i].y - points[i - 1].y;
+			const len = Math.hypot(dx, dy);
+			segs.push({ from: points[i - 1], to: points[i], len, acc: total });
+			total += len;
+		}
+		if (total < 1) total = 1;
+
+		setPlatePosition(points[0].x, points[0].y);
+		const t0 = performance.now();
+
+		function frame(now) {
+			const t = Math.min(1, (now - t0) / duration);
+			const dist = t * total;
+			let x = points[points.length - 1].x;
+			let y = points[points.length - 1].y;
+			for (let i = segs.length - 1; i >= 0; i--) {
+				if (dist >= segs[i].acc) {
+					const s = segs[i];
+					const u = s.len === 0 ? 1 : (dist - s.acc) / s.len;
+					x = s.from.x + (s.to.x - s.from.x) * u;
+					y = s.from.y + (s.to.y - s.from.y) * u;
+					break;
+				}
+			}
+			setPlatePosition(x, y);
+			if (t < 1) {
+				motionRaf = requestAnimationFrame(frame);
+			} else {
+				motionRaf = null;
+				if (typeof onDone === "function") onDone();
+			}
+		}
+
+		motionRaf = requestAnimationFrame(frame);
+	}
+
+	function showMovingPlate() {
+		enterMotionLayout();
+		plateContainer.style.visibility = "";
+		const plate = renderRandom();
+		setHidden(false);
+		const duration = clampScreenTime(parseInt(screenTimeInput.value, 10));
+		screenTimeInput.value = String(duration);
+		const path = motionSelect.value === "random" ? buildRandomPath() : buildDownPath();
+		phase = "show";
+		recordPlate(plate);
+		animateAlongPath(path, duration, () => {
+			phase = "blank";
+			if (running) {
+				plateContainer.style.visibility = "hidden";
+				scheduleNext(clampInterval(parseInt(intervalInput.value, 10)));
+			} else {
+				exitMotionLayout();
+				setHidden(false);
+				fitTextToOverlay();
+			}
+		});
+		return plate;
 	}
 
 	function pad2(n) {
@@ -234,7 +434,12 @@
 	}
 
 	function tick() {
+		if (!running) return;
 		const ms = clampInterval(parseInt(intervalInput.value, 10));
+		if (isMotionOn()) {
+			showMovingPlate();
+			return;
+		}
 		if (phase === "show") {
 			// Pasamos a "en blanco" por ms
 			setHidden(true);
@@ -253,9 +458,13 @@
 		const ms = clampInterval(parseInt(intervalInput.value, 10));
 		intervalInput.value = String(ms);
 		saveSettings();
-		if (timerId) {
-			clearInterval(timerId);
+		stopTimers();
+		running = true;
+		if (isMotionOn()) {
+			showMovingPlate();
+			return;
 		}
+		exitMotionLayout();
 		// Comenzamos mostrando y luego vendrá el blanco
 		phase = "show";
 		const plate = renderRandom();
@@ -264,10 +473,21 @@
 		scheduleNext(ms);
 	}
 
-	function stop() {
+	function stopTimers() {
+		running = false;
 		if (timerId) {
 			clearTimeout(timerId);
 			timerId = null;
+		}
+		cancelMotionAnim();
+	}
+
+	function stop() {
+		stopTimers();
+		if (isMotionOn()) {
+			exitMotionLayout();
+			setHidden(false);
+			fitTextToOverlay();
 		}
 	}
 
@@ -284,15 +504,22 @@
 			const obj = JSON.parse(raw);
 			if (typeof obj.interval === "number") intervalInput.value = String(obj.interval);
 			if (typeof obj.seed === "string") seedInput.value = obj.seed;
+			if (obj.motion === "down" || obj.motion === "random" || obj.motion === "none") {
+				motionSelect.value = obj.motion;
+			}
+			if (typeof obj.screenTime === "number") screenTimeInput.value = String(obj.screenTime);
 		} catch {
 			/* ignore */
 		}
+		syncMotionControls();
 	}
 	function saveSettings() {
 		try {
 			const obj = {
 				interval: clampInterval(parseInt(intervalInput.value, 10)),
 				seed: seedInput.value || "",
+				motion: motionSelect.value || "none",
+				screenTime: clampScreenTime(parseInt(screenTimeInput.value, 10)),
 			};
 			localStorage.setItem("simu-plate-settings", JSON.stringify(obj));
 		} catch {
@@ -308,6 +535,15 @@
 	stopBtn.addEventListener("click", stop);
 	nextBtn.addEventListener("click", () => {
 		rng = createRngFromSeed(seedInput.value.trim() || undefined);
+		if (isMotionOn()) {
+			if (timerId) {
+				clearTimeout(timerId);
+				timerId = null;
+			}
+			cancelMotionAnim();
+			showMovingPlate();
+			return;
+		}
 		// Avanza una fase manualmente
 		if (phase === "show") {
 			setHidden(true);
@@ -324,12 +560,39 @@
 			scheduleNext(clampInterval(parseInt(intervalInput.value, 10)));
 		}
 	});
+	motionSelect.addEventListener("change", () => {
+		syncMotionControls();
+		saveSettings();
+		if (running) {
+			const keepRng = rng;
+			stop();
+			rng = keepRng;
+			start();
+		} else {
+			exitMotionLayout();
+			setHidden(false);
+			fitTextToOverlay();
+		}
+	});
+	screenTimeInput.addEventListener("change", saveSettings);
 	chooseFileBtn.addEventListener("click", chooseLogFile);
 	exportBtn.addEventListener("click", exportLog);
-	window.addEventListener("resize", fitTextToOverlay);
+	window.addEventListener("resize", () => {
+		if (!plateContainer.classList.contains("is-moving")) {
+			fitTextToOverlay();
+		}
+	});
 	modeSelect.addEventListener("change", () => {
 		mode = modeSelect.value === "moto" ? "moto" : (modeSelect.value === "auto1994" ? "auto1994" : "auto");
-		const plateContainer = document.getElementById("plateContainer");
+		const wasMoving = plateContainer.classList.contains("is-moving");
+		if (wasMoving) {
+			cancelMotionAnim();
+			if (timerId) {
+				clearTimeout(timerId);
+				timerId = null;
+			}
+			exitMotionLayout();
+		}
 		if (mode === "moto") {
 			plateImg.src = "./imgs/motos-crop.png";
 			plateContainer.classList.remove("plate--auto");
@@ -355,7 +618,7 @@
 	document.addEventListener("keydown", (ev) => {
 		if (ev.code === "Space") {
 			ev.preventDefault();
-			if (timerId) stop();
+			if (running) stop();
 			else {
 				rng = createRngFromSeed(seedInput.value.trim());
 				start();
@@ -366,6 +629,9 @@
 	// Cuando carga la imagen, ajustamos tamaños
 	plateImg.addEventListener("load", () => {
 		fitTextToOverlay();
+		if (running && isMotionOn() && !plateContainer.classList.contains("is-moving")) {
+			showMovingPlate();
+		}
 	});
 
 	// Init

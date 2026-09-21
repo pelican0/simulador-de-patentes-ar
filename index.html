@@ -16,7 +16,7 @@
 				<div class="controls">
 					<label class="control">
 						<span>Intervalo (ms)</span>
-						<input id="intervalInput" type="number" min="200" step="100" value="1500" />
+						<input id="intervalInput" type="number" min="200" step="100" value="1500" title="Pausa entre patentes. En movimiento: espera después de que la patente sale de la pantalla" />
 					</label>
 					<label class="control">
 						<span>Semilla (opcional)</span>
@@ -29,6 +29,18 @@
 							<option value="moto">Moto</option>
 							<option value="auto1994">Auto 1994</option>
 						</select>
+					</label>
+					<label class="control">
+						<span>Movimiento</span>
+						<select id="motionSelect">
+							<option value="none" selected>Estática</option>
+							<option value="down">Patente con Movimiento</option>
+							<option value="random">RANDOM</option>
+						</select>
+					</label>
+					<label class="control" id="screenTimeControl" hidden>
+						<span>Tiempo en pantalla (ms)</span>
+						<input id="screenTimeInput" type="number" min="100" step="100" value="2500" title="Duración del recorrido hasta salir de la pantalla. Menos tiempo = más velocidad" />
 					</label>
 					<button id="startBtn" class="btn primary">Iniciar</button>
 					<button id="stopBtn" class="btn">Detener</button>
@@ -57,7 +69,7 @@
 			</main>
 
 			<footer class="footer">
-				<p>Barra espaciadora: iniciar/detener • Valores quedan guardados</p>
+				<p>Barra espaciadora: iniciar/detener • Valores quedan guardados • Con movimiento, la patente recorre la pantalla en el tiempo indicado</p>
 			</footer>
 		</div>
 

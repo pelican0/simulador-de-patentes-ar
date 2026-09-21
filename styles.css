@@ -44,6 +44,11 @@ body {
 	flex-direction: column;
 	gap: 12px;
 	margin-bottom: 16px;
+	position: sticky;
+	top: 0;
+	z-index: 100;
+	background: #f6f7fb;
+	padding: 8px 0 12px;
 }
 
 .header h1 {
@@ -75,7 +80,8 @@ body {
 }
 
 .control input[type="number"],
-.control input[type="text"] {
+.control input[type="text"],
+.control select {
 	height: 34px;
 	padding: 4px 10px;
 	border: 1px solid #cbd5e1;
@@ -83,6 +89,10 @@ body {
 	background: white;
 	font-size: 14px;
 	min-width: 120px;
+}
+
+.control select {
+	min-width: 180px;
 }
 
 .btn {
@@ -215,6 +225,27 @@ body {
 
 .plate-text.is-hidden {
 	opacity: 0;
+}
+
+/* Patente en movimiento: recorre el viewport (tamaño de pantalla del usuario) */
+.plate.is-moving {
+	position: fixed;
+	left: 0;
+	top: 0;
+	margin: 0;
+	max-width: none;
+	z-index: 200;
+	pointer-events: none;
+	will-change: transform;
+}
+
+.motion-spacer {
+	width: 100%;
+	pointer-events: none;
+}
+
+body.motion-on main {
+	min-height: 280px;
 }
 
 .footer {
